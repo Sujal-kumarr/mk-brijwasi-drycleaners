@@ -1,0 +1,41 @@
+{
+  "name": "mk-brijwasi-drycleaners",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MK Brijwasi Drycleaners - Laundry & Drycleaning Management Platform",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build:shared": "npm run build --workspace=@mk-drycleaners/shared",
+    "dev:backend": "npm run dev --workspace=@mk-drycleaners/backend",
+    "dev:frontend": "npm run dev --workspace=@mk-drycleaners/frontend",
+    "dev": "npm-run-all --parallel dev:backend dev:frontend",
+    "build": "npm run build:shared && npm run build --workspace=@mk-drycleaners/backend && npm run build --workspace=@mk-drycleaners/frontend",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=@mk-drycleaners/backend",
+    "db:migrate": "npm run db:migrate --workspace=@mk-drycleaners/backend",
+    "db:seed": "npm run db:seed --workspace=@mk-drycleaners/backend",
+    "db:studio": "npm run db:studio --workspace=@mk-drycleaners/backend",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "keywords": [
+    "drycleaning",
+    "laundry",
+    "management",
+    "monorepo"
+  ],
+  "author": "MK Brijwasi Drycleaners",
+  "license": "ISC",
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true,
+    "prisma@5.22.0": true,
+    "@embedded-postgres/windows-x64@18.4.0-beta.17": true
+  },
+  "devDependencies": {
+    "npm-run-all2": "^9.0.3"
+  }
+}

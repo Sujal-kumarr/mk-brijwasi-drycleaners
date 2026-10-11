@@ -1,0 +1,573 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================= Enums =================
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  LAUNDRY_STAFF
+  DELIVERY_PARTNER
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  PICKUP_ASSIGNED
+  PICKED_UP
+  RECEIVED_AT_LAUNDRY
+  INSPECTION_REQUIRED
+  AWAITING_CUSTOMER_APPROVAL
+  PROCESSING
+  QUALITY_CHECK
+  READY_FOR_DELIVERY
+  DELIVERY_ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  ISSUE_REPORTED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  PAY_ON_PICKUP
+  ONLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum NotificationChannel {
+  IN_APP
+  SMS
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum AssignmentType {
+  PICKUP
+  DELIVERY
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  REASSIGNED
+  CANCELLED
+}
+
+enum PricingUnit {
+  PER_PIECE
+  PER_KG
+}
+
+enum SlotType {
+  PICKUP
+  DELIVERY
+}
+
+// ================= Models =================
+
+// 1. User
+model User {
+  id           String    @id @default(uuid())
+  email        String?
+  mobile       String    @unique
+  passwordHash String
+  role         Role      @default(CUSTOMER)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  customerProfile       CustomerProfile?
+  partnerProfile        PartnerProfile?
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  statusChangesActed    OrderStatusHistory[]
+  refreshTokens         RefreshToken[]
+  paymentsRecorded      Payment[]
+  refundsProcessed      Refund[]
+  payoutsProcessed      PartnerPayout[]
+  expensesRecorded      Expense[]
+  assignedSupportTickets SupportTicket[]
+
+  @@index([mobile])
+  @@index([role])
+}
+
+// 2. CustomerProfile
+model CustomerProfile {
+  id        String    @id @default(uuid())
+  userId    String    @unique
+  firstName String
+  lastName  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses      Address[]
+  orders         Order[]
+  supportTickets SupportTicket[]
+}
+
+// 3. PartnerProfile
+model PartnerProfile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  firstName     String
+  lastName      String
+  vehicleNumber String
+  isAvailable   Boolean   @default(true)
+  serviceAreas  String[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user        User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments PickupDeliveryAssignment[]
+  earnings    PartnerEarning[]
+  payouts     PartnerPayout[]
+}
+
+// 4. Address
+model Address {
+  id            String   @id @default(uuid())
+  customerId    String
+  recipientName String
+  mobile        String
+  addressLine   String
+  locality      String
+  landmark      String?
+  city          String   @default("Vrindavan")
+  state         String   @default("Uttar Pradesh")
+  pincode       String
+  lat           Float?
+  lng           Float?
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customer       CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  pickupOrders   Order[]         @relation("PickupAddress")
+  deliveryOrders Order[]         @relation("DeliveryAddress")
+
+  @@index([customerId])
+}
+
+// 5. ServiceArea
+model ServiceArea {
+  id        String   @id @default(uuid())
+  name      String
+  pincode   String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 6. TimeSlot
+model TimeSlot {
+  id        String   @id @default(uuid())
+  label     String
+  startHour Int
+  endHour   Int
+  isActive  Boolean  @default(true)
+  slotType  SlotType @default(PICKUP)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pickupOrders   Order[] @relation("PickupSlot")
+  deliveryOrders Order[] @relation("DeliverySlot")
+}
+
+// 7. ClothingCategory
+model ClothingCategory {
+  id          String         @id @default(uuid())
+  name        String
+  slug        String         @unique
+  description String?
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  items ClothingItem[]
+}
+
+// 8. ClothingItem
+model ClothingItem {
+  id          String           @id @default(uuid())
+  categoryId  String
+  name        String
+  description String?
+  pricingUnit PricingUnit      @default(PER_PIECE)
+  isActive    Boolean          @default(true)
+  imageUrl    String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  category   ClothingCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  prices     ServicePrice[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+}
+
+// 9. LaundryService
+model LaundryService {
+  id          String         @id @default(uuid())
+  name        String
+  slug        String         @unique
+  description String?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  prices     ServicePrice[]
+  orderItems OrderItem[]
+}
+
+// 10. ServicePrice
+model ServicePrice {
+  id               String         @id @default(uuid())
+  clothingItemId   String
+  laundryServiceId String
+  priceInPaise     Int
+  minQty           Int?
+  estimatedDays    Int            @default(2)
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  clothingItem   ClothingItem   @relation(fields: [clothingItemId], references: [id], onDelete: Cascade)
+  laundryService LaundryService @relation(fields: [laundryServiceId], references: [id], onDelete: Cascade)
+
+  @@unique([clothingItemId, laundryServiceId])
+}
+
+// 11. BusinessConfig
+model BusinessConfig {
+  id                      Int      @id @default(1)
+  businessName            String
+  contactPhone            String
+  contactEmail            String
+  address                 String
+  openingHours            Json
+  minOrderAmountInPaise   Int
+  deliveryFeeInPaise      Int
+  currency                String   @default("INR")
+  taxPercent              Float    @default(0)
+  cancellationPolicyHours Int      @default(2)
+  logoUrl                 String?
+  updatedAt               DateTime @updatedAt
+}
+
+// 12. Order
+model Order {
+  id                       String         @id @default(uuid())
+  orderNumber              String         @unique
+  customerId               String
+  pickupAddressId          String
+  deliveryAddressId        String
+  pickupDate               DateTime
+  pickupSlotId             String
+  deliveryDate             DateTime
+  deliverySlotId           String
+  status                   OrderStatus    @default(PENDING_CONFIRMATION)
+  estimatedAmountInPaise   Int
+  finalAmountInPaise       Int?
+  deliveryFeeInPaise       Int
+  discountInPaise          Int            @default(0)
+  paymentMethod            PaymentMethod
+  paymentStatus            PaymentStatus  @default(PENDING)
+  specialInstructions      String?
+  customerApprovalRequired Boolean        @default(false)
+  customerApprovedAt       DateTime?
+  cancelledAt              DateTime?
+  cancelReason             String?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  customer        CustomerProfile           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  pickupAddress   Address                   @relation("PickupAddress", fields: [pickupAddressId], references: [id], onDelete: Restrict)
+  deliveryAddress Address                   @relation("DeliveryAddress", fields: [deliveryAddressId], references: [id], onDelete: Restrict)
+  pickupSlot      TimeSlot                  @relation("PickupSlot", fields: [pickupSlotId], references: [id], onDelete: Restrict)
+  deliverySlot    TimeSlot                  @relation("DeliverySlot", fields: [deliverySlotId], references: [id], onDelete: Restrict)
+
+  items          OrderItem[]
+  statusHistory  OrderStatusHistory[]
+  assignments    PickupDeliveryAssignment[]
+  payments       Payment[]
+  notifications  Notification[]
+  supportTickets SupportTicket[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+// 13. OrderItem
+model OrderItem {
+  id                String         @id @default(uuid())
+  orderId           String
+  clothingItemId    String
+  laundryServiceId  String
+  quantity          Int
+  unitPriceInPaise  Int
+  totalPriceInPaise Int
+  inspectedQuantity Int?
+  notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  clothingItem   ClothingItem   @relation(fields: [clothingItemId], references: [id], onDelete: Restrict)
+  laundryService LaundryService @relation(fields: [laundryServiceId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+// 14. OrderStatusHistory
+model OrderStatusHistory {
+  id             String       @id @default(uuid())
+  orderId        String
+  previousStatus OrderStatus?
+  newStatus      OrderStatus
+  actorId        String?
+  note           String?
+  createdAt      DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+// 15. PickupDeliveryAssignment
+model PickupDeliveryAssignment {
+  id          String           @id @default(uuid())
+  orderId     String
+  partnerId   String
+  type        AssignmentType
+  status      AssignmentStatus
+  assignedAt  DateTime         @default(now())
+  acceptedAt  DateTime?
+  completedAt DateTime?
+  notes       String?
+
+  order   Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  partner PartnerProfile        @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  events  PickupDeliveryEvent[]
+  earning PartnerEarning?
+
+  @@index([partnerId])
+  @@index([status])
+  @@index([orderId])
+}
+
+// 16. PickupDeliveryEvent
+model PickupDeliveryEvent {
+  id            String   @id @default(uuid())
+  assignmentId  String
+  eventType     String
+  note          String?
+  proofImageUrl String?
+  lat           Float?
+  lng           Float?
+  createdAt     DateTime @default(now())
+
+  assignment PickupDeliveryAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+}
+
+// 17. Payment
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+  amountInPaise Int
+  method        PaymentMethod
+  status        PaymentStatus
+  reference     String?       @unique
+  recordedById  String
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  recordedBy User     @relation(fields: [recordedById], references: [id], onDelete: Restrict)
+  refunds    Refund[]
+
+  @@index([orderId])
+}
+
+// 18. Refund
+model Refund {
+  id            String   @id @default(uuid())
+  paymentId     String
+  amountInPaise Int
+  reason        String
+  processedById String
+  processedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  payment     Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  processedBy User    @relation(fields: [processedById], references: [id], onDelete: Restrict)
+
+  @@index([paymentId])
+}
+
+// 19. PartnerEarning
+model PartnerEarning {
+  id            String   @id @default(uuid())
+  partnerId     String
+  assignmentId  String   @unique
+  amountInPaise Int
+  note          String?
+  createdAt     DateTime @default(now())
+
+  partner    PartnerProfile           @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  assignment PickupDeliveryAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId])
+}
+
+// 20. PartnerPayout
+model PartnerPayout {
+  id            String    @id @default(uuid())
+  partnerId     String
+  amountInPaise Int
+  reference     String?
+  paidById      String
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  partner PartnerProfile @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  paidBy  User           @relation(fields: [paidById], references: [id], onDelete: Restrict)
+
+  @@index([partnerId])
+}
+
+// 21. Expense
+model Expense {
+  id            String   @id @default(uuid())
+  description   String
+  amountInPaise Int
+  category      String
+  recordedById  String
+  expenseDate   DateTime
+  createdAt     DateTime @default(now())
+
+  recordedBy User @relation(fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@index([category])
+  @@index([expenseDate])
+}
+
+// 22. Notification
+model Notification {
+  id            String              @id @default(uuid())
+  userId        String
+  channel       NotificationChannel
+  status        NotificationStatus
+  subject       String?
+  body          String
+  orderId       String?
+  createdAt     DateTime            @default(now())
+  sentAt        DateTime?
+  failureReason String?
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+}
+
+// 23. AuditLog
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+// 24. SupportTicket
+model SupportTicket {
+  id           String   @id @default(uuid())
+  customerId   String
+  orderId      String?
+  subject      String
+  description  String
+  status       String   @default("OPEN")
+  assignedToId String?
+  resolution   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customer   CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order      Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  assignedTo User?           @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([status])
+}
+
+// 25. OtpRecord
+model OtpRecord {
+  id        String   @id @default(uuid())
+  mobile    String
+  hashedOtp String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([mobile])
+}
+
+// 26. RefreshToken
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
