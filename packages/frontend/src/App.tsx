@@ -16,7 +16,14 @@ import { OrderHistoryPage, OrderDetailPage } from './pages/customer/OrderPages';
 import { HelpPage } from './pages/customer/HelpPage';
 
 // Admin Pages
-import { AdminDashboard, AdminPlaceholderPage } from './pages/admin/AdminDashboard';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
+import { CatalogPage } from './pages/admin/CatalogPage';
+import { CustomersPage } from './pages/admin/CustomersPage';
+import { PartnersPage } from './pages/admin/PartnersPage';
+import { PaymentsPage } from './pages/admin/PaymentsPage';
+import { ReportsPage } from './pages/admin/ReportsPage';
+import { SettingsPage } from './pages/admin/SettingsPage';
 
 // Partner Pages
 import {
@@ -50,34 +57,13 @@ export function App() {
       <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
-          <Route
-            path="orders"
-            element={<AdminPlaceholderPage title="Order Processing" description="Inspect orders, assign partners, update status" />}
-          />
-          <Route
-            path="catalog"
-            element={<AdminPlaceholderPage title="Catalog & Pricing" description="Manage clothing categories, items, services, and price rates" />}
-          />
-          <Route
-            path="customers"
-            element={<AdminPlaceholderPage title="Customer Directory" description="Customer accounts, addresses, order history" />}
-          />
-          <Route
-            path="partners"
-            element={<AdminPlaceholderPage title="Riders & Fleet" description="Delivery partner profiles, active duty, vehicles" />}
-          />
-          <Route
-            path="payments"
-            element={<AdminPlaceholderPage title="Finance & Payments" description="Payment reconciliation, refunds, partner payouts" />}
-          />
-          <Route
-            path="reports"
-            element={<AdminPlaceholderPage title="Business Reports" description="Sales breakdown, volume trends, turn-around analytics" />}
-          />
-          <Route
-            path="settings"
-            element={<AdminPlaceholderPage title="Business Settings" description="Opening hours, delivery fee rules, service zones" />}
-          />
+          <Route path="orders" element={<AdminOrdersPage />} />
+          <Route path="catalog" element={<CatalogPage />} />
+          <Route path="customers" element={<CustomersPage />} />
+          <Route path="partners" element={<PartnersPage />} />
+          <Route path="payments" element={<PaymentsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>
 

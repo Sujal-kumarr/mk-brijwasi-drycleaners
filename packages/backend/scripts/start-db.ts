@@ -13,7 +13,14 @@ async function run() {
     persistent: true,
   });
 
-  await pg.initialise();
+  const fs = await import('fs');
+  const pgVersionFile = path.join(dataDir, 'PG_VERSION');
+  if (!fs.existsSync(pgVersionFile)) {
+    console.log('Initializing cluster for the first time...');
+    await pg.initialise();
+  } else {
+    console.log('Existing cluster found, skipping initialization.');
+  }
   await pg.start();
   console.log('PostgreSQL server started on port 5432.');
 

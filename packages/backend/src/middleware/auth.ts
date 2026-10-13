@@ -67,3 +67,23 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
 }
 
 export const requireAuth = authenticate;
+
+export function requireRole(...roles: RoleType[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required. No user session found.',
+      });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: `Forbidden: Access requires one of [${roles.join(', ')}] roles.`,
+      });
+    }
+
+    return next();
+  };
+}

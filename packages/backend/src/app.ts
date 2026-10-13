@@ -7,6 +7,13 @@ import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
 import { authRouter } from './modules/auth/auth.router';
 import { usersRouter } from './modules/users/users.router';
+import { catalogRouter } from './modules/catalog/catalog.router';
+import { addressesRouter } from './modules/addresses/addresses.router';
+import { ordersRouter } from './modules/orders/orders.router';
+import { adminRouter } from './modules/admin/admin.router';
+import { partnersRouter } from './modules/partners/partners.router';
+import { paymentsRouter } from './modules/payments/payments.router';
+import { reportsRouter } from './modules/reports/reports.router';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp() {
@@ -56,6 +63,13 @@ export function createApp() {
   const apiRouter = express.Router();
   apiRouter.use('/auth', authLimiter, authRouter);
   apiRouter.use('/users', usersRouter);
+  apiRouter.use('/catalog', catalogRouter);
+  apiRouter.use('/addresses', addressesRouter);
+  apiRouter.use('/orders', ordersRouter);
+  apiRouter.use('/admin', adminRouter);
+  apiRouter.use('/partners', partnersRouter);
+  apiRouter.use('/payments', paymentsRouter);
+  apiRouter.use('/reports', reportsRouter);
 
   app.use('/api/v1', apiRouter);
 
